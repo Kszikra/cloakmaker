@@ -19,6 +19,11 @@ class Cloakmaker_Admin
         add_action('save_post_cloaked_link', [$this, 'save_redirect_url']);
         add_filter('manage_cloaked_link_posts_columns', [$this, 'add_clicks_column']);
         add_action('manage_cloaked_link_posts_custom_column', [$this, 'render_clicks_column'], 10, 2);
+        add_action('add_meta_boxes', [$this, 'add_link_status_meta_box']);
+        add_action('save_post_cloaked_link', [$this, 'save_link_status']);
+        add_action('admin_enqueue_scripts', [$this, 'enqueue_admin_assets']);
+
+        $this->register_ajax_toggle();
 
     }
 
@@ -100,6 +105,7 @@ class Cloakmaker_Admin
     public function add_clicks_column($columns)
     {
         $columns['clicks'] = 'Clicks';
+        $columns['enabled'] = 'Enabled';
         return $columns;
     }
 
@@ -111,14 +117,103 @@ class Cloakmaker_Admin
         if ($column === 'clicks') {
             global $wpdb;
             $slug = get_post_field('post_name', $post_id);
-
             $table = $wpdb->prefix . 'cloakmaker_clicks';
             $count = $wpdb->get_var(
                 $wpdb->prepare("SELECT COUNT(*) FROM $table WHERE slug = %s", $slug)
             );
-
             echo intval($count);
         }
+
+        if ($column === 'enabled') {
+            $enabled = get_post_meta($post_id, '_cloakmaker_link_enabled', true);
+            $enabled = ($enabled !== '0') ? 'checked' : '';
+            ?>
+            <label class="cloakmaker-switch">
+                <input type="checkbox" class="cloakmaker-toggle" data-post-id="<?php echo $post_id; ?>" <?php echo $enabled; ?>>
+                <span class="cloakmaker-slider"></span>
+            </label>
+            <?php
+        }
     }
+
+
+    public function add_link_status_meta_box()
+    {
+        add_meta_box(
+            'cloakmaker_link_status',
+            __('Link Status', 'cloakmaker'),
+            [$this, 'render_link_status_meta_box'],
+            'cloaked_link',
+            'side',
+            'high'
+        );
+    }
+
+    public function render_link_status_meta_box($post)
+    {
+        $enabled = get_post_meta($post->ID, '_cloakmaker_link_enabled', true);
+        $enabled = ($enabled !== '0'); // Default: enabled
+
+        wp_nonce_field('cloakmaker_save_link_status', 'cloakmaker_link_status_nonce');
+        ?>
+        <label>
+            <input type="checkbox" name="cloakmaker_link_enabled" value="1" <?php checked($enabled); ?>>
+            <?php _e('Enable this link', 'cloakmaker'); ?>
+        </label>
+        <?php
+    }
+
+    public function save_link_status($post_id)
+    {
+        if (!isset($_POST['cloakmaker_link_status_nonce']) || !wp_verify_nonce($_POST['cloakmaker_link_status_nonce'], 'cloakmaker_save_link_status')) {
+            return;
+        }
+
+        if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE)
+            return;
+        if (!current_user_can('edit_post', $post_id))
+            return;
+
+        $enabled = isset($_POST['cloakmaker_link_enabled']) ? '1' : '0';
+        update_post_meta($post_id, '_cloakmaker_link_enabled', $enabled);
+    }
+
+    public function enqueue_admin_assets()
+    {
+        wp_enqueue_style(
+            'cloakmaker-admin-style',
+            plugin_dir_url(__FILE__) . 'css/cloakmaker-admin.css',
+            [],
+            '1.0.0'
+        );
+
+        wp_enqueue_script(
+            'cloakmaker-admin-js',
+            plugin_dir_url(__FILE__) . 'js/cloakmaker-admin.js',
+            ['jquery'],
+            '1.0.0',
+            true
+        );
+    }
+
+    public function register_ajax_toggle()
+    {
+        add_action('wp_ajax_cloakmaker_toggle_enabled', [$this, 'ajax_toggle_enabled']);
+    }
+
+    public function ajax_toggle_enabled()
+    {
+        if (!current_user_can('edit_post', $_POST['post_id'])) {
+            wp_send_json_error('No permission');
+        }
+
+        $post_id = intval($_POST['post_id']);
+        $enabled = ($_POST['enabled'] === '1') ? '1' : '0';
+
+        update_post_meta($post_id, '_cloakmaker_link_enabled', $enabled);
+
+        wp_send_json_success('Updated');
+    }
+
 
 }

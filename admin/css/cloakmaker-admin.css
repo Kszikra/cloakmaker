@@ -1,0 +1,42 @@
+.cloakmaker-switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 20px;
+}
+
+.cloakmaker-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.cloakmaker-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0;
+  right: 0; bottom: 0;
+  background-color: #ccc;
+  transition: .4s;
+  border-radius: 20px;
+}
+
+.cloakmaker-slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 2px;
+  bottom: 2px;
+  background-color: white;
+  transition: .4s;
+  border-radius: 50%;
+}
+
+.cloakmaker-switch input:checked + .cloakmaker-slider {
+  background-color: #4CAF50;
+}
+
+.cloakmaker-switch input:checked + .cloakmaker-slider:before {
+  transform: translateX(20px);
+}

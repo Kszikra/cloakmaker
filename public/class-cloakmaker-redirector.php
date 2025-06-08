@@ -51,7 +51,12 @@ class Cloakmaker_Redirector
             wp_die('Link not found', 'Cloakmaker Error', ['response' => 404]);
         }
 
-        // ✅ Log the click (GDPR-compliant)
+        $enabled = get_post_meta($post->ID, '_cloakmaker_link_enabled', true);
+        if ($enabled === '0') {
+            wp_die('This link is currently disabled.', 'Cloakmaker Blocked', ['response' => 403]);
+        }
+
+        // Log the click (GDPR-compliant)
         ClickLogger::log($slug);
 
         // Get destination URL from a custom field
