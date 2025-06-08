@@ -17,6 +17,9 @@ class Cloakmaker_Admin
         add_action('init', [$this, 'register_cloaked_link_cpt']);
         add_action('add_meta_boxes', [$this, 'add_redirect_url_meta_box']);
         add_action('save_post_cloaked_link', [$this, 'save_redirect_url']);
+        add_filter('manage_cloaked_link_posts_columns', [$this, 'add_clicks_column']);
+        add_action('manage_cloaked_link_posts_custom_column', [$this, 'render_clicks_column'], 10, 2);
+
     }
 
     public function register_cloaked_link_cpt()
@@ -90,4 +93,32 @@ class Cloakmaker_Admin
             update_post_meta($post_id, '_cloakmaker_target_url', $url);
         }
     }
+
+    /**
+     * Adds a new column for click count.
+     */
+    public function add_clicks_column($columns)
+    {
+        $columns['clicks'] = 'Clicks';
+        return $columns;
+    }
+
+    /**
+     * Renders the click count in the custom column.
+     */
+    public function render_clicks_column($column, $post_id)
+    {
+        if ($column === 'clicks') {
+            global $wpdb;
+            $slug = get_post_field('post_name', $post_id);
+
+            $table = $wpdb->prefix . 'cloakmaker_clicks';
+            $count = $wpdb->get_var(
+                $wpdb->prepare("SELECT COUNT(*) FROM $table WHERE slug = %s", $slug)
+            );
+
+            echo intval($count);
+        }
+    }
+
 }

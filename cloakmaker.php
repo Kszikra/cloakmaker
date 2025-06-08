@@ -25,6 +25,7 @@ define('CLOAKMAKER_PLUGIN_URL', plugin_dir_url(__FILE__));
 
 // Load the loader class
 require_once CLOAKMAKER_PLUGIN_DIR . 'includes/class-cloakmaker-loader.php';
+require_once CLOAKMAKER_PLUGIN_DIR . 'includes/ClickLogger.php';
 
 // Run the plugin
 function run_cloakmaker()
@@ -32,3 +33,23 @@ function run_cloakmaker()
     $loader = new Cloakmaker_Loader();
 }
 run_cloakmaker();
+
+register_activation_hook(__FILE__, 'cloakmaker_create_clicks_table');
+
+function cloakmaker_create_clicks_table()
+{
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'cloakmaker_clicks';
+    $charset_collate = $wpdb->get_charset_collate();
+    $sql = "CREATE TABLE $table_name (
+        id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+        slug VARCHAR(255) NOT NULL,
+        clicked_at DATETIME NOT NULL,
+        PRIMARY KEY (id),
+        INDEX (slug),
+        INDEX (clicked_at)
+    ) $charset_collate;";
+    require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+    dbDelta($sql);
+}
+

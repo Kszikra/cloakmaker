@@ -5,6 +5,8 @@
  * Handles redirection for cloaked links via /go/{slug}
  */
 
+use Cloakmaker\ClickLogger;
+
 if (!defined('ABSPATH')) {
     exit;
 }
@@ -49,7 +51,10 @@ class Cloakmaker_Redirector
             wp_die('Link not found', 'Cloakmaker Error', ['response' => 404]);
         }
 
-        // Get destination URL from a custom field (to be implemented later)
+        // ✅ Log the click (GDPR-compliant)
+        ClickLogger::log($slug);
+
+        // Get destination URL from a custom field
         $target_url = get_post_meta($post->ID, '_cloakmaker_target_url', true);
 
         if (!$target_url || !filter_var($target_url, FILTER_VALIDATE_URL)) {
