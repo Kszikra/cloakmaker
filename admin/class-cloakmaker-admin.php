@@ -22,6 +22,8 @@ class Cloakmaker_Admin
         add_action('add_meta_boxes', [$this, 'add_link_status_meta_box']);
         add_action('save_post_cloaked_link', [$this, 'save_link_status']);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_admin_assets']);
+        add_action('admin_menu', [$this, 'register_import_export_page']);
+        add_action('admin_init', [$this, 'handle_export_import']);
 
         $this->register_ajax_toggle();
 
@@ -215,5 +217,119 @@ class Cloakmaker_Admin
         wp_send_json_success('Updated');
     }
 
+    public function register_import_export_page()
+    {
+        add_submenu_page(
+            'edit.php?post_type=cloaked_link',
+            __('Export / Import', 'cloakmaker'),
+            __('Export / Import', 'cloakmaker'),
+            'manage_options',
+            'cloakmaker-import-export',
+            [$this, 'render_import_export_page']
+        );
+    }
+
+    public function render_import_export_page()
+    {
+        ?>
+        <div class="wrap">
+            <h1><?php _e('Export / Import Cloaked Links', 'cloakmaker'); ?></h1>
+
+            <h2><?php _e('Export', 'cloakmaker'); ?></h2>
+            <form method="post">
+                <?php submit_button(__('Download CSV Export', 'cloakmaker'), 'primary', 'cloakmaker_export'); ?>
+            </form>
+
+            <hr>
+
+            <h2><?php _e('Import', 'cloakmaker'); ?></h2>
+            <form method="post" enctype="multipart/form-data">
+                <input type="file" name="cloakmaker_import_file" accept=".csv" required>
+                <?php submit_button(__('Upload and Import CSV', 'cloakmaker'), 'primary', 'cloakmaker_import'); ?>
+            </form>
+        </div>
+        <?php
+    }
+
+    public function handle_export_import()
+    {
+        if (isset($_POST['cloakmaker_export'])) {
+            $this->export_links();
+        }
+
+        if (isset($_POST['cloakmaker_import']) && isset($_FILES['cloakmaker_import_file'])) {
+            $this->import_links($_FILES['cloakmaker_import_file']);
+        }
+    }
+
+    public function export_links()
+    {
+        $posts = get_posts([
+            'post_type' => 'cloaked_link',
+            'post_status' => 'any',
+            'numberposts' => -1,
+        ]);
+
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="cloaked_links_export.csv"');
+
+        $output = fopen('php://output', 'w');
+
+        fputcsv($output, ['Title', 'Slug', 'Target URL'], ';');
+
+        foreach ($posts as $post) {
+            $title = $post->post_title;
+            $slug = $post->post_name;
+            $target = get_post_meta($post->ID, '_cloakmaker_target_url', true);
+
+            fputcsv($output, [$title, $slug, $target], ';');
+        }
+
+        fclose($output);
+        exit;
+    }
+
+    public function import_links($file)
+    {
+        if (($handle = fopen($file['tmp_name'], 'r')) === false) {
+            wp_die(__('Could not read uploaded file.', 'cloakmaker'));
+        }
+
+        $header = fgetcsv($handle, 0, ';');
+        $expected = ['Title', 'Slug', 'Target URL'];
+
+        if ($header !== $expected) {
+            wp_die(__('CSV header must be: Title, Slug, Target URL (with semicolon separators)', 'cloakmaker'));
+        }
+
+        while (($data = fgetcsv($handle, 0, ';')) !== false) {
+            list($title, $slug, $target_url) = $data;
+
+            if (!$title || !$slug || !$target_url) {
+                continue;
+            }
+
+            $existing = get_page_by_path($slug, OBJECT, 'cloaked_link');
+
+            if ($existing) {
+                $post_id = $existing->ID;
+            } else {
+                $post_id = wp_insert_post([
+                    'post_title' => $title,
+                    'post_name' => $slug,
+                    'post_type' => 'cloaked_link',
+                    'post_status' => 'publish',
+                ]);
+            }
+
+            update_post_meta($post_id, '_cloakmaker_target_url', esc_url_raw($target_url));
+            update_post_meta($post_id, '_cloakmaker_link_enabled', '1');
+        }
+
+        fclose($handle);
+
+        wp_redirect(admin_url('edit.php?post_type=cloaked_link'));
+        exit;
+    }
 
 }
