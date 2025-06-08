@@ -22,3 +22,13 @@ define('CLOAKMAKER_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('CLOAKMAKER_PLUGIN_URL', plugin_dir_url(__FILE__));
 
 // Placeholder: Include loader/init files here later
+
+// Load the loader class
+require_once CLOAKMAKER_PLUGIN_DIR . 'includes/class-cloakmaker-loader.php';
+
+// Run the plugin
+function run_cloakmaker()
+{
+    $loader = new Cloakmaker_Loader();
+}
+run_cloakmaker();
