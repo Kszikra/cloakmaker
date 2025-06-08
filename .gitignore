@@ -1,0 +1,11 @@
+# WordPress plugin ignore rules
+*.log
+*.sql
+*.zip
+node_modules/
+vendor/
+.idea/
+.vscode/
+.env
+.DS_Store
+Thumbs.db
