@@ -56,6 +56,31 @@ class Cloakmaker_Redirector
             wp_die('This link is currently disabled.', 'Cloakmaker Blocked', ['response' => 403]);
         }
 
+        // Rate limiting: block if more than 5 clicks today from same IP on same slug
+        $rate_limit_enabled = get_option('cloakmaker_rate_limit_enabled');
+        $max_clicks = intval(get_option('cloakmaker_rate_limit_max_clicks', 5));
+
+        if ($rate_limit_enabled) {
+            global $wpdb;
+            $ip = ClickLogger::get_user_ip();
+            $table = $wpdb->prefix . 'cloakmaker_clicks';
+
+            $clicks_today = $wpdb->get_var(
+                $wpdb->prepare(
+                    "SELECT COUNT(*) FROM $table 
+             WHERE slug = %s 
+             AND ip_address = %s 
+             AND DATE(clicked_at) = CURDATE()",
+                    $slug,
+                    $ip
+                )
+            );
+
+            if ($clicks_today >= $max_clicks) {
+                wp_die('Click limit exceeded for today. Try again tomorrow.', 'Cloakmaker Limit', ['response' => 429]);
+            }
+        }
+
         // Log the click (GDPR-compliant)
         ClickLogger::log($slug);
 
@@ -69,4 +94,5 @@ class Cloakmaker_Redirector
         wp_redirect($target_url, 301);
         exit;
     }
+
 }

@@ -24,6 +24,8 @@ class Cloakmaker_Admin
         add_action('admin_enqueue_scripts', [$this, 'enqueue_admin_assets']);
         add_action('admin_menu', [$this, 'register_import_export_page']);
         add_action('admin_init', [$this, 'handle_export_import']);
+        add_action('admin_menu', [$this, 'add_settings_menu']);
+        add_action('admin_init', [$this, 'register_settings']);
 
         $this->register_ajax_toggle();
 
@@ -330,6 +332,78 @@ class Cloakmaker_Admin
 
         wp_redirect(admin_url('edit.php?post_type=cloaked_link'));
         exit;
+    }
+
+    // Add a "Settings" submenu under "Cloaked Links"
+    public function add_settings_menu()
+    {
+        add_submenu_page(
+            'edit.php?post_type=cloaked_link',
+            __('Cloakmaker Settings', 'cloakmaker'),
+            __('Settings', 'cloakmaker'),
+            'manage_options',
+            'cloakmaker-settings',
+            [$this, 'render_settings_page']
+        );
+    }
+
+    // Register the settings
+    public function register_settings()
+    {
+        register_setting('cloakmaker_settings_group', 'cloakmaker_rate_limit_enabled');
+        register_setting('cloakmaker_settings_group', 'cloakmaker_rate_limit_max_clicks');
+    }
+
+    // Render the settings page
+    public function render_settings_page()
+    {
+        ?>
+        <div class="wrap">
+            <h1><?php _e('Cloakmaker Settings', 'cloakmaker'); ?></h1>
+            <form method="post" action="options.php">
+                <?php settings_fields('cloakmaker_settings_group'); ?>
+                <?php do_settings_sections('cloakmaker_settings_group'); ?>
+                <table class="form-table">
+                    <tr valign="top">
+                        <th scope="row"><?php _e('Enable Rate Limiting', 'cloakmaker'); ?></th>
+                        <td>
+                            <input type="checkbox" name="cloakmaker_rate_limit_enabled" id="cloakmaker_rate_limit_enabled"
+                                value="1" <?php checked(1, get_option('cloakmaker_rate_limit_enabled'), true); ?> />
+                        </td>
+                    </tr>
+                    <tr valign="top">
+                        <th scope="row"><?php _e('Max Clicks Per Day (per IP & link)', 'cloakmaker'); ?></th>
+                        <td>
+                            <input type="number" name="cloakmaker_rate_limit_max_clicks" id="cloakmaker_rate_limit_max_clicks"
+                                value="<?php echo esc_attr(get_option('cloakmaker_rate_limit_max_clicks', 5)); ?>" min="1"
+                                style="transition: opacity 0.2s;" />
+                        </td>
+                    </tr>
+                </table>
+                <?php submit_button(); ?>
+            </form>
+
+            <script>
+                document.addEventListener('DOMContentLoaded', function () {
+                    const toggle = document.getElementById('cloakmaker_rate_limit_enabled');
+                    const maxInput = document.getElementById('cloakmaker_rate_limit_max_clicks');
+
+                    function updateState() {
+                        if (toggle.checked) {
+                            maxInput.disabled = false;
+                            maxInput.style.opacity = '1';
+                        } else {
+                            maxInput.disabled = true;
+                            maxInput.style.opacity = '0.5';
+                        }
+                    }
+
+                    toggle.addEventListener('change', updateState);
+                    updateState(); // run on page load
+                });
+            </script>
+        </div>
+        <?php
     }
 
 }

@@ -41,15 +41,27 @@ function cloakmaker_create_clicks_table()
     global $wpdb;
     $table_name = $wpdb->prefix . 'cloakmaker_clicks';
     $charset_collate = $wpdb->get_charset_collate();
+
+    // Create or update the table structure
     $sql = "CREATE TABLE $table_name (
         id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
         slug VARCHAR(255) NOT NULL,
+        ip_address VARCHAR(45) NOT NULL,
         clicked_at DATETIME NOT NULL,
         PRIMARY KEY (id),
         INDEX (slug),
-        INDEX (clicked_at)
+        INDEX (clicked_at),
+        INDEX (ip_address)
     ) $charset_collate;";
+
     require_once ABSPATH . 'wp-admin/includes/upgrade.php';
-    dbDelta($sql);
+    dbDelta($sql); // Will alter the table if columns are missing
+
+    // Extra safety: manually check and add 'ip_address' column if dbDelta misses it
+    $columns = $wpdb->get_col("DESC $table_name", 0);
+    if (!in_array('ip_address', $columns)) {
+        $wpdb->query("ALTER TABLE $table_name ADD COLUMN ip_address VARCHAR(45) NOT NULL AFTER slug");
+    }
 }
+
 
